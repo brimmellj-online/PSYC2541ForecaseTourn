@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Forecasting Tournament</title>
+<style>
+:root{color-scheme:light dark;--bg:#faf8f4;--fg:#1f2430;--mut:#5d6575;--card:#fff;--bd:#dcd6ca;--ac:#2f5d8a;--acf:#fff;--warn:#b4532a;--ok:#2d7a4f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171a21;--fg:#e8e6e1;--mut:#a0a7b5;--card:#20242d;--bd:#363c49;--ac:#7fb2e5;--acf:#10151c;--warn:#e69367;--ok:#7cc79b}}
+:root[data-theme="dark"]{--bg:#171a21;--fg:#e8e6e1;--mut:#a0a7b5;--card:#20242d;--bd:#363c49;--ac:#7fb2e5;--acf:#10151c;--warn:#e69367;--ok:#7cc79b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 Georgia,"Times New Roman",serif}
+main{max-width:720px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;margin:.2em 0}h2{font-size:1.15rem;margin:1.2em 0 .4em}
+.mut{color:var(--mut);font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px;margin:14px 0}
+.q{font-size:1.1rem;font-weight:bold}
+.src{font:600 .8rem/1.3 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+.snip{border-left:4px solid var(--ac);padding-left:12px;margin:8px 0}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.row button{flex:1 1 0;min-width:44px}
+button{font:600 .95rem system-ui,sans-serif;padding:10px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--fg);cursor:pointer}
+button.on{background:var(--ac);color:var(--acf);border-color:var(--ac)}
+button.go{background:var(--ac);color:var(--acf);border-color:var(--ac)}
+button:disabled{opacity:.45;cursor:not-allowed}
+input[type=text],textarea{width:100%;font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--fg)}
+input[type=range]{width:100%;accent-color:var(--ac)}
+.big{font:700 2rem system-ui,sans-serif;color:var(--ac)}
+label{display:block;font:600 .9rem system-ui,sans-serif;margin-top:10px}
+.prog{height:6px;background:var(--bd);border-radius:3px;overflow:hidden;margin-bottom:8px}.prog i{display:block;height:100%;background:var(--ac)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font:.85rem system-ui,sans-serif}
+th,td{border-bottom:1px solid var(--bd);padding:6px 8px;text-align:left;vertical-align:top}
+.good{color:var(--ok)}.bad{color:var(--warn)}
+svg text{fill:var(--mut);font:11px system-ui,sans-serif}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+/* ===== LECTURER CONFIG: edit this block to change the question and evidence ===== */
+const CONFIG = {
+  title: "Forecasting Tournament",
+  scenarioNote: "This is a fictional scenario created for teaching. Treat the evidence as if it were real.",
+  question: "A UK university runs a one-year pilot of a four-day teaching week for 600 first-year students. Will the end-of-year evaluation report a statistically significant improvement in student wellbeing (pilot group vs. matched comparison group) by 31 July 2027?",
+  background: "Wellbeing is measured with the Warwick–Edinburgh Mental Wellbeing Scale (WEMWBS). The evaluation team is independent of the university’s marketing office. “Statistically significant” means p < .05 on the pre-specified primary comparison.",
+  outcome: null, /* set to true or false after the event to enable Brier scores; null = not yet known */
+  /* rel = designed reliability (1–5) shown in the debrief; note = why */
+  snippets: [
+    {source:"Pilot’s pre-registered analysis plan (university research office)",
+     text:"The evaluation compares WEMWBS scores at baseline and end of year for 600 pilot students and 600 matched controls. A power analysis shows 90% power to detect a 2-point difference.",
+     rel:4, note:"Reliable and relevant, but it describes the design, not the result. It tells you the study can detect a real effect, which matters if you think one exists."},
+    {source:"Statistics blog reviewing past UK education pilots",
+     text:"Across 20 pilots that measured wellbeing, 6 reported a significant improvement after year one. The author notes that small pilots were more likely to report positive results.",
+     rel:3, note:"A base rate (about 30%). Useful as an anchor, though the reviewed pilots differ from this one and the blog is not peer reviewed."},
+    {source:"Peer-reviewed meta-analysis of 14 shortened-workweek trials (employees, not students)",
+     text:"Average wellbeing gain was small but reliable (d ≈ 0.2). Effects were weaker where overall workload was not reduced.",
+     rel:4, note:"High-quality source, but the population differs (workers, not students). Good evidence with imperfect transfer."},
+    {source:"Student union press release",
+     text:"“Students are already thriving: 9 in 10 tell us they love the new timetable.” Based on a voluntary poll of 85 union members.",
+     rel:2, note:"Self-selected small sample from a group that campaigned for the pilot. Measures liking, not the WEMWBS outcome."},
+    {source:"Anonymous post on a student forum",
+     text:"“My flatmate says everyone on the pilot is more stressed because the lectures got crammed into four days.”",
+     rel:1, note:"Unverifiable, second-hand anecdote about one person. Vivid, but almost no diagnostic value."},
+    {source:"Interim report from the independent evaluation team (month 6)",
+     text:"Pilot group scored +1.4 WEMWBS points above controls (95% CI −0.2 to 3.0). Attrition was 8% in the pilot group vs. 5% in controls.",
+     rel:5, note:"The strongest evidence: direct, independent, on the actual outcome. Note the CI includes zero, and effects can change over six more months."},
+    {source:"Newspaper op-ed by a professor of education",
+     text:"“Everyone knows compressed timetables backfire. This pilot will fail.” No data are cited.",
+     rel:2, note:"Confident opinion without evidence. Expertise matters, but confidence is not calibration."}
+  ]
+};
+/* ===== END CONFIG ===== */
+
+const app=document.getElementById("app");
+const N=CONFIG.snippets.length;
+const S={name:"",step:0,prior:40,priorWhy:"",items:CONFIG.snippets.map(()=>({rel:0,use:0,p:null,why:""}))};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const last=i=>i===0?S.prior:S.items[i-1].p;
+
+function head(){
+  const pct=Math.round(S.step/(N+2)*100);
+  return `<h1>${esc(CONFIG.title)}</h1><div class="prog"><i style="width:${pct}%"></i></div>`;
+}
+function qcard(){
+  return `<div class="card"><div class="q">${esc(CONFIG.question)}</div><p class="mut">${esc(CONFIG.background)}</p></div>`;
+}
+function scale(key,i,val,lo,hi){
+  let b="";for(let k=1;k<=5;k++)b+=`<button class="${val===k?'on':''}" onclick="pick('${key}',${i},${k})">${k}</button>`;
+  return `<div class="row">${b}</div><div class="mut" style="display:flex;justify-content:space-between;margin-top:-8px;margin-bottom:8px"><span>${lo}</span><span>${hi}</span></div>`;
+}
+function pick(key,i,k){S.items[i][key]=k;render();}
+function go(d){S.step+=d;render();window.scrollTo(0,0);}
+
+function render(){
+  const st=S.step;
+  if(st===0){
+    app.innerHTML=head()+`<div class="card"><p>In this activity you will make a probability forecast, then update it as new pieces of information arrive. Some sources are strong, some are weak, and some are misleading. Your job is to judge how much each one deserves to move you.</p>
+    <p class="mut">${esc(CONFIG.scenarioNote)}</p>
+    <label for="nm">Your name or ID</label><input type="text" id="nm" value="${esc(S.name)}" oninput="S.name=this.value" placeholder="e.g. Alex P."></div>
+    <button class="go" onclick="go(1)">Start</button>`;
+  } else if(st===1){
+    app.innerHTML=head()+`<h2>Step 1: Your initial forecast</h2>`+qcard()+`
+    <div class="card"><label>Probability that the answer is YES</label><div class="big" id="pv">${S.prior}%</div>
+    <input type="range" min="1" max="99" value="${S.prior}" oninput="S.prior=+this.value;document.getElementById('pv').textContent=this.value+'%'">
+    <div class="mut" style="display:flex;justify-content:space-between"><span>1% (almost certainly no)</span><span>99% (almost certainly yes)</span></div>
+    <label for="pw">What is your reasoning? What would a sensible base rate be?</label><textarea id="pw" rows="3" oninput="S.priorWhy=this.value">${esc(S.priorWhy)}</textarea></div>
+    <button class="go" onclick="go(1)">Lock in my forecast</button>`;
+  } else if(st<=N+1){
+    const i=st-2, sn=CONFIG.snippets[i], it=S.items[i];
+    if(it.p===null) it.p=last(i);
+    const prev=last(i), ok=it.rel>0&&it.use>0;
+    app.innerHTML=head()+`<h2>Evidence ${i+1} of ${N}</h2><div class="mut">Question: ${esc(CONFIG.question)}</div>
+    <div class="card"><div class="src">Source: ${esc(sn.source)}</div><div class="snip">${esc(sn.text)}</div></div>
+    <div class="card"><label>1. How reliable is this source? (credibility, method, bias, independence)</label>${scale("rel",i,it.rel,"1 = very unreliable","5 = very reliable")}
+    <label>2. How relevant is it to this specific question?</label>${scale("use",i,it.use,"1 = barely relevant","5 = directly relevant")}
+    <label>3. Your updated probability of YES (previously ${prev}%)</label><div class="big" id="pv">${it.p}%</div>
+    <input type="range" min="1" max="99" value="${it.p}" oninput="S.items[${i}].p=+this.value;document.getElementById('pv').textContent=this.value+'%'">
+    <label for="w">Why did you move (or not move) by that amount?</label><textarea id="w" rows="2" oninput="S.items[${i}].why=this.value">${esc(it.why)}</textarea></div>
+    <div style="display:flex;gap:8px"><button onclick="go(-1)">Back</button><button class="go" ${ok?"":"disabled"} onclick="go(1)">${st===N+1?"Finish":"Next evidence"}</button></div>`;
+  } else summary();
+}
+
+function chart(){
+  const pts=[S.prior,...S.items.map(x=>x.p)],W=640,H=220,L=36,B=26,T=10,R=10;
+  const x=i=>L+i*(W-L-R)/(pts.length-1),y=p=>T+(100-p)/100*(H-T-B);
+  let g="";[0,25,50,75,100].forEach(v=>g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" opacity=".15"/><text x="4" y="${y(v)+4}">${v}%</text>`);
+  const line=pts.map((p,i)=>`${x(i)},${y(p)}`).join(" ");
+  let dots="",lab="";pts.forEach((p,i)=>{dots+=`<circle cx="${x(i)}" cy="${y(p)}" r="4" fill="var(--ac)"/>`;lab+=`<text x="${x(i)-6}" y="${H-8}">${i===0?"Start":"E"+i}</text>`});
+  return `<div class="scroll"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:460px;color:var(--fg)">${g}<polyline points="${line}" fill="none" stroke="var(--ac)" stroke-width="2.5"/>${dots}${lab}</svg></div>`;
+}
+
+function summary(){
+  const fin=S.items[N-1].p;
+  let rows="",txt=`FORECASTING TOURNAMENT\nName: ${S.name||"(not given)"}\nQuestion: ${CONFIG.question}\nInitial forecast: ${S.prior}%  Reason: ${S.priorWhy||"-"}\n\n`;
+  CONFIG.snippets.forEach((sn,i)=>{
+    const it=S.items[i],pr=last(i),d=it.p-pr,gap=it.rel-sn.rel;
+    const cls=Math.abs(gap)<=1?"good":"bad";
+    rows+=`<tr><td>${i+1}</td><td>${esc(sn.source)}</td><td>${pr}% → ${it.p}% (${d>0?"+":""}${d})</td><td>${it.rel} / ${it.use}</td><td class="${cls}">${sn.rel}</td><td>${esc(sn.note)}</td></tr>`;
+    txt+=`E${i+1} [${sn.source}]\n  reliability ${it.rel}/5, relevance ${it.use}/5, ${pr}% -> ${it.p}% (${d>0?"+":""}${d})\n  Reason: ${it.why||"-"}\n`;
+  });
+  txt+=`\nFinal forecast: ${fin}%\n`;
+  let brier="";
+  if(CONFIG.outcome!==null){
+    const o=CONFIG.outcome?1:0,b0=((S.prior-0)/100-o)**2,b1=(fin/100-o)**2;
+    brier=`<div class="card"><b>Outcome: ${CONFIG.outcome?"YES":"NO"}.</b> Brier score (lower is better, 0 is perfect, 0.25 is a coin flip): initial <b>${(((S.prior)/100-o)**2).toFixed(3)}</b>, final <b>${b1.toFixed(3)}</b>. ${b1<b0?"Updating improved your accuracy.":"Updating did not improve your accuracy this time. Was it the evidence or how you weighed it?"}</div>`;
+    txt+=`Outcome: ${CONFIG.outcome?"YES":"NO"}; Brier initial ${b0.toFixed(3)}, final ${b1.toFixed(3)}\n`;
+  } else brier=`<div class="card mut">The outcome is not yet known, so no accuracy score can be calculated. Your lecturer will reveal it.</div>`;
+  app.innerHTML=head()+`<h2>Your forecast trajectory</h2>`+qcard()+`<div class="card"><div>Initial: <b>${S.prior}%</b> &nbsp;→&nbsp; Final: <b class="big" style="font-size:1.4rem">${fin}%</b></div>${chart()}</div>${brier}
+  <h2>Debrief: how well did you judge the sources?</h2>
+  <p class="mut">“Designed” is the reliability rating the question-setter intended. Green means your rating was within one point of it.</p>
+  <div class="card scroll"><table><tr><th>#</th><th>Source</th><th>Your update</th><th>Your rel. / relev.</th><th>Designed rel.</th><th>Comment</th></tr>${rows}</table></div>
+  <h2>Reflect</h2><div class="card"><ul><li>Did you move more for vivid or confident snippets than for dry, reliable ones?</li><li>Did you anchor on your first number, or over-react to the latest item?</li><li>Which piece of evidence <i>should</i> have mattered most, and did it?</li></ul></div>
+  <h2>Your results</h2><div class="card"><p class="mut">Copy this text and submit it as your lecturer instructs.</p><textarea id="ex" rows="8" readonly>${esc(txt)}</textarea><div style="margin-top:8px"><button class="go" onclick="cp()">Copy results</button> <span id="cm" class="mut"></span></div></div>
+  <button onclick="go(-1)">Back</button>`;
+}
+function cp(){
+  const t=document.getElementById("ex");t.select();
+  const done=()=>document.getElementById("cm").textContent="Copied.";
+  const fb=()=>{try{document.execCommand("copy");done()}catch(e){document.getElementById("cm").textContent="Press Ctrl/Cmd+C to copy the selected text."}};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t.value).then(done,fb);else fb();
+}
+render();
+</script>
+</body>
+</html>
